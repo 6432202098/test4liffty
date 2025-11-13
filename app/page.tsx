@@ -33,7 +33,7 @@ export default function Page() {
         className="w-full max-w-md bg-white rounded-2xl shadow-lg p-6"
       >
         <h1 className="text-2xl font-bold text-center text-green-700 mb-6">
-          สมัครสมาชิกด้วย LINE 💚
+          สมัครสมาชิกด้วย LINE 
         </h1>
 
         <form className="flex flex-col gap-4">
