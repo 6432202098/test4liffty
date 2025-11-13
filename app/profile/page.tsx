@@ -2,75 +2,58 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { gsap } from "gsap";
-
-interface UserData {
-  name: string;
-  phone: string;
-  citizenId: string;
-  email?: string;
-}
 
 export default function ProfilePage() {
-  const [userData, setUserData] = useState<UserData | null>(null);
+  const [profile, setProfile] = useState<any>(null);
   const router = useRouter();
 
-  // ฟังก์ชันปิดเลขบัตร 9 หลัก
-  const maskCitizenId = (id: string) => {
-    return `${id.slice(0, 2)}*********`;
-  };
-
   useEffect(() => {
-    async function fetchData() {
-      // ดึงข้อมูลลูกค้าจาก API
-      const res = await fetch("/api/get-user-me"); // API คืนข้อมูล user ปัจจุบัน
-      if (res.ok) {
-        const data: UserData = await res.json();
-        setUserData(data);
-
-        // GSAP animation
-        gsap.from(".profile-item", {
-          opacity: 0,
-          y: 20,
-          duration: 0.5,
-          stagger: 0.2,
-        });
-      } else {
-        // ถ้าไม่มีข้อมูล หรือยังไม่ล็อกอิน → กลับหน้าแรก
-        router.push("/");
-      }
+    const savedProfile = localStorage.getItem("liffProfile");
+    if (!savedProfile) {
+      router.push("/");
+    } else {
+      setProfile(JSON.parse(savedProfile));
     }
-
-    fetchData();
   }, [router]);
 
-  if (!userData) return <p className="p-4">กำลังโหลดข้อมูลโปรไฟล์...</p>;
+  if (!profile)
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <p className="text-gray-600 text-lg">กำลังโหลดข้อมูล...</p>
+      </div>
+    );
 
   return (
-    <div className="max-w-md mx-auto p-6">
-      <h1 className="text-2xl font-bold mb-6 text-center">ข้อมูลลูกค้า</h1>
+    <div className="flex flex-col items-center justify-center h-screen p-6 bg-green-50">
+      <div className="bg-white shadow-md rounded-lg p-6 w-full max-w-sm text-center">
+        <h1 className="text-xl font-bold mb-4 text-green-700">
+          โปรไฟล์สมาชิก
+        </h1>
+        <p className="text-gray-700 mb-2">
+          <b>ชื่อ:</b> {profile.name || profile.displayName}
+        </p>
+        <p className="text-gray-700 mb-2">
+          <b>เบอร์โทร:</b> {profile.phone || "-"}
+        </p>
+        <p className="text-gray-700 mb-2">
+          <b>เลขบัตรประชาชน:</b> {profile.citizenId || "-"}
+        </p>
+        <p className="text-gray-700 mb-4">
+          <b>อีเมล:</b> {profile.email || "-"}
+        </p>
 
-      <div className="profile-item border rounded p-4 mb-4 shadow-md">
-        <h2 className="font-semibold text-gray-700">ชื่อ-นามสกุล</h2>
-        <p className="text-lg">{userData.name}</p>
+        <button
+          className="bg-red-500 text-white py-2 rounded w-full font-semibold hover:bg-red-600"
+          onClick={() => {
+            // @ts-ignore
+            window.liff.logout();
+            localStorage.removeItem("liffProfile");
+            router.push("/");
+          }}
+        >
+          Logout
+        </button>
       </div>
-
-      <div className="profile-item border rounded p-4 mb-4 shadow-md">
-        <h2 className="font-semibold text-gray-700">เบอร์โทร</h2>
-        <p className="text-lg">{userData.phone}</p>
-      </div>
-
-      <div className="profile-item border rounded p-4 mb-4 shadow-md">
-        <h2 className="font-semibold text-gray-700">หมายเลขบัตรประชาชน</h2>
-        <p className="text-lg">{maskCitizenId(userData.citizenId)}</p>
-      </div>
-
-      {userData.email && (
-        <div className="profile-item border rounded p-4 mb-4 shadow-md">
-          <h2 className="font-semibold text-gray-700">อีเมล</h2>
-          <p className="text-lg">{userData.email}</p>
-        </div>
-      )}
     </div>
   );
 }
