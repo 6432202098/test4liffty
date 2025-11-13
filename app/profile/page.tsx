@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 
 export default function ProfilePage() {
   const [profile, setProfile] = useState<any>(null);
+  const [showFullId, setShowFullId] = useState(false);
   const router = useRouter();
 
   useEffect(() => {
@@ -23,20 +24,42 @@ export default function ProfilePage() {
       </div>
     );
 
+  const maskedId = profile.citizenId
+    ? showFullId
+      ? profile.citizenId
+      : `${profile.citizenId.slice(0, 2)}•••••••••••`
+    : "-";
+
   return (
     <div className="flex flex-col items-center justify-center h-screen p-6 bg-green-50">
       <div className="bg-white shadow-md rounded-lg p-6 w-full max-w-sm text-center">
-        <h1 className="text-xl font-bold mb-4 text-green-700">
-          โปรไฟล์สมาชิก
+        {profile.pictureUrl && (
+          <img
+            src={profile.pictureUrl}
+            alt="Profile"
+            className="w-24 h-24 rounded-full mx-auto mb-4"
+          />
+        )}
+        <h1 className="text-xl font-bold mb-2 text-green-700">
+          {profile.displayName}
         </h1>
+
         <p className="text-gray-700 mb-2">
-          <b>ชื่อ:</b> {profile.name || profile.displayName}
+          <b>ชื่อ:</b> {profile.name}
         </p>
         <p className="text-gray-700 mb-2">
-          <b>เบอร์โทร:</b> {profile.phone || "-"}
+          <b>เบอร์โทร:</b> {profile.phone}
         </p>
         <p className="text-gray-700 mb-2">
-          <b>เลขบัตรประชาชน:</b> {profile.citizenId || "-"}
+          <b>บัตรประชาชน:</b> {maskedId}{" "}
+          {profile.citizenId && (
+            <button
+              onClick={() => setShowFullId((v) => !v)}
+              className="text-blue-600 underline ml-1 text-sm"
+            >
+              {showFullId ? "ซ่อน" : "ดูเต็ม"}
+            </button>
+          )}
         </p>
         <p className="text-gray-700 mb-4">
           <b>อีเมล:</b> {profile.email || "-"}
@@ -47,11 +70,11 @@ export default function ProfilePage() {
           onClick={() => {
             // @ts-ignore
             window.liff.logout();
-            localStorage.removeItem("liffProfile");
             router.push("/");
+            window.location.reload();
           }}
         >
-          Logout
+          Logout จากระบบ LINE
         </button>
       </div>
     </div>

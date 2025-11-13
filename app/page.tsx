@@ -4,12 +4,13 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
 interface UserData {
+  userId: string;
+  displayName: string;
+  pictureUrl?: string;
   name?: string;
   phone?: string;
   citizenId?: string;
   email?: string;
-  userId?: string;
-  displayName?: string;
 }
 
 export default function HomePage() {
@@ -23,7 +24,8 @@ export default function HomePage() {
       const profile = JSON.parse(savedProfile);
       setUserData(profile);
       setLoading(false);
-      // ถ้าข้อมูลครบแล้ว ให้ไปหน้า Profile
+
+      // ถ้าลงทะเบียนครบแล้ว -> ไปหน้า profile
       if (profile.name && profile.phone && profile.citizenId) {
         router.push("/profile");
       }
@@ -35,29 +37,35 @@ export default function HomePage() {
     script.src = "https://static.line-scdn.net/liff/edge/2/sdk.js";
     script.async = true;
 
-    script.onload = () => {
+    script.onload = async () => {
       // @ts-ignore
       const liff = window.liff;
-      liff
-        .init({ liffId: "2008486286-mM6W3zQD" })
-        .then(async () => {
-          if (!liff.isLoggedIn()) {
-            liff.login({ redirectUri: window.location.href });
-          } else {
-            const profile = await liff.getProfile();
-            const data: UserData = {
-              userId: profile.userId,
-              displayName: profile.displayName,
-            };
-            localStorage.setItem("liffProfile", JSON.stringify(data));
-            setUserData(data);
+
+      try {
+        await liff.init({ liffId: "2008486286-rBk2lqm4" });
+
+        if (!liff.isLoggedIn()) {
+          liff.login({ redirectUri: window.location.href });
+        } else {
+          const profile = await liff.getProfile();
+          const data: UserData = {
+            userId: profile.userId,
+            displayName: profile.displayName,
+            pictureUrl: profile.pictureUrl,
+          };
+          localStorage.setItem("liffProfile", JSON.stringify(data));
+          setUserData(data);
+
+          // ถ้ามีข้อมูลครบแล้ว -> ไปหน้า profile
+          if (data.name && data.phone && data.citizenId) {
+            router.push("/profile");
           }
-        })
-        .catch((err: unknown) => {
-          console.error("LIFF init error:", err);
-          if (err instanceof Error) alert(err.message);
-        })
-        .finally(() => setLoading(false));
+        }
+      } catch (err) {
+        console.error("LIFF init error:", err);
+      } finally {
+        setLoading(false);
+      }
     };
 
     document.body.appendChild(script);
@@ -73,16 +81,26 @@ export default function HomePage() {
       </div>
     );
 
-  // ถ้าล็อคอินแล้วแต่ยังไม่กรอกข้อมูล
+  // ถ้าล็อคอินแล้วแต่ยังไม่ได้ลงทะเบียน
   if (userData && (!userData.name || !userData.phone || !userData.citizenId)) {
     return (
       <div className="flex flex-col items-center justify-center h-screen p-6 bg-green-50">
         <div className="bg-white shadow-md rounded-lg p-6 w-full max-w-sm text-center">
           <h1 className="text-xl font-bold mb-4 text-green-700">
-            กรอกข้อมูลลูกค้า
+            ลงทะเบียนสมาชิก
           </h1>
+
+          {userData.pictureUrl && (
+            <img
+              src={userData.pictureUrl}
+              alt="Profile"
+              className="w-20 h-20 rounded-full mx-auto mb-3"
+            />
+          )}
+          <p className="text-gray-600 mb-4">{userData.displayName}</p>
+
           <form
-            onSubmit={async (e) => {
+            onSubmit={(e) => {
               e.preventDefault();
               const form = e.target as HTMLFormElement;
               const data = {
@@ -97,6 +115,7 @@ export default function HomePage() {
                 email: (form.elements.namedItem("email") as HTMLInputElement)
                   .value,
               };
+
               localStorage.setItem("liffProfile", JSON.stringify(data));
               router.push("/profile");
             }}
@@ -104,28 +123,24 @@ export default function HomePage() {
             <input
               name="name"
               placeholder="ชื่อ-นามสกุล"
-              defaultValue={userData?.name || ""}
               className="border border-gray-300 rounded p-2 w-full mb-2 text-sm"
               required
             />
             <input
               name="phone"
               placeholder="เบอร์โทร"
-              defaultValue={userData?.phone || ""}
               className="border border-gray-300 rounded p-2 w-full mb-2 text-sm"
               required
             />
             <input
               name="citizenId"
               placeholder="หมายเลขบัตรประชาชน"
-              defaultValue={userData?.citizenId || ""}
               className="border border-gray-300 rounded p-2 w-full mb-2 text-sm"
               required
             />
             <input
               name="email"
               placeholder="อีเมล (ไม่บังคับ)"
-              defaultValue={userData?.email || ""}
               className="border border-gray-300 rounded p-2 w-full mb-4 text-sm"
             />
 
@@ -140,13 +155,15 @@ export default function HomePage() {
           <button
             className="mt-4 bg-red-500 text-white py-2 rounded w-full font-semibold hover:bg-red-600"
             onClick={() => {
+              // logout เฉพาะ session LIFF
               // @ts-ignore
               window.liff.logout();
-              localStorage.removeItem("liffProfile");
+              // แต่ไม่ลบข้อมูลสมาชิก
               router.push("/");
+              window.location.reload();
             }}
           >
-            Logout
+            Logout จากระบบ LINE
           </button>
         </div>
       </div>
