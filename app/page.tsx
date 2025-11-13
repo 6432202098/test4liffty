@@ -1,94 +1,124 @@
-'use client';
+"use client";
 
-import { useEffect, useRef } from 'react';
-import gsap from 'gsap';
-import { ScrollTrigger } from 'gsap/ScrollTrigger';
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 
-gsap.registerPlugin(ScrollTrigger);
+interface UserData {
+  name?: string;
+  phone?: string;
+  citizenId?: string;
+  email?: string;
+}
 
-export default function Page() {
-  const formRef = useRef<HTMLDivElement>(null);
+export default function HomePage() {
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [userData, setUserData] = useState<UserData | null>(null);
+  const router = useRouter();
 
   useEffect(() => {
-    const el = formRef.current;
-    gsap.fromTo(
-      el,
-      { opacity: 0, y: 40 },
-      {
-        opacity: 1,
-        y: 0,
-        duration: 1.2,
-        scrollTrigger: {
-          trigger: el,
-          start: 'top 80%',
-        },
-      }
-    );
-  }, []);
+    // โหลด LIFF SDK ผ่าน CDN
+    const script = document.createElement("script");
+    script.src = "https://static.line-scdn.net/liff/edge/2/sdk.js";
+    script.async = true;
 
-  return (
-    <div className="min-h-screen bg-linear-to-b from-green-50 to-white flex flex-col items-center justify-center px-6 py-10">
-      <div
-        ref={formRef}
-        className="w-full max-w-md bg-white rounded-2xl shadow-lg p-6"
-      >
-        <h1 className="text-2xl font-bold text-center text-green-700 mb-6">
-          สมัครสมาชิกด้วย LINE 
-        </h1>
+    script.onload = () => {
+      // @ts-ignore
+      const liff = window.liff;
 
-        <form className="flex flex-col gap-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-600">
-              ชื่อ - นามสกุล
-            </label>
-            <input
-              type="text"
-              className="w-full mt-1 px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-400 outline-none"
-              placeholder="กรอกชื่อเต็มของคุณ"
-            />
-          </div>
+      liff.init({ liffId: "2008486286-rBk2lqm4" })
+        .then(() => {
+          if (!liff.isLoggedIn()) {
+            liff.login();
+          } else {
+            setIsLoggedIn(true);
+            liff.getProfile().then(async (profile: any) => {
+              console.log(profile.userId, profile.displayName);
 
-          <div>
-            <label className="block text-sm font-medium text-gray-600">
-              เบอร์โทร
-            </label>
-            <input
-              type="text"
-              className="w-full mt-1 px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-400 outline-none"
-              placeholder="เช่น 0812345678"
-            />
-          </div>
+              // เช็คข้อมูลลูกค้าในฐานข้อมูล (API call)
+              const res = await fetch(`/api/get-user?userId=${profile.userId}`);
+              const data: UserData = await res.json();
 
-          <div>
-            <label className="block text-sm font-medium text-gray-600">
-              หมายเลขบัตรประชาชน
-            </label>
-            <input
-              type="password"
-              className="w-full mt-1 px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-400 outline-none"
-              placeholder="13 หลัก"
-            />
-          </div>
+              setUserData(data);
 
-          <div>
-            <label className="block text-sm font-medium text-gray-600">
-              อีเมล (ไม่บังคับ)
-            </label>
-            <input
-              type="email"
-              className="w-full mt-1 px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-400 outline-none"
-              placeholder="example@email.com"
-            />
-          </div>
+              // ถ้าข้อมูลครบ → redirect ไปหน้า profile
+              if (data.name && data.phone && data.citizenId) {
+                router.push("/profile");
+              }
+            });
+          }
+        })
+        .catch((err: any) => console.error("LIFF init error:", err));
+    };
 
+    document.body.appendChild(script);
+
+    return () => {
+      document.body.removeChild(script);
+    };
+  }, [router]);
+
+  if (!isLoggedIn) return <p>กำลังเข้าสู่ระบบ LIFF...</p>;
+
+  if (userData && (!userData.name || !userData.phone || !userData.citizenId)) {
+    return (
+      <div className="p-4 max-w-md mx-auto">
+        <h1 className="text-xl font-bold mb-4">กรอกข้อมูลลูกค้า</h1>
+        <form
+          onSubmit={async (e) => {
+            e.preventDefault();
+            const form = e.target as any;
+            const data = {
+              name: form.name.value,
+              phone: form.phone.value,
+              citizenId: form.citizenId.value,
+              email: form.email.value,
+            };
+            // save data via API
+            await fetch("/api/save-user", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(data),
+            });
+            router.push("/profile");
+          }}
+        >
+          <input
+            name="name"
+            placeholder="ชื่อ-นามสกุล"
+            defaultValue={userData?.name || ""}
+            className="border p-2 w-full mb-2"
+            required
+          />
+          <input
+            name="phone"
+            placeholder="เบอร์โทร"
+            defaultValue={userData?.phone || ""}
+            className="border p-2 w-full mb-2"
+            required
+          />
+          <input
+            name="citizenId"
+            placeholder="หมายเลขบัตรประชาชน"
+            defaultValue={userData?.citizenId || ""}
+            className="border p-2 w-full mb-2"
+            required
+          />
+          <input
+            name="email"
+            placeholder="อีเมล (ไม่บังคับ)"
+            defaultValue={userData?.email || ""}
+            className="border p-2 w-full mb-2"
+          />
           <button
             type="submit"
-            className="mt-5 bg-green-600 text-white py-3 rounded-xl text-lg font-semibold hover:bg-green-700 transition-all"
+            className="bg-green-500 text-white px-4 py-2 rounded"
           >
             บันทึกข้อมูล
           </button>
         </form>
       </div>
-    </div>
-  );
+    );
+  }
+
+  return <p>กำลังโหลดข้อมูล...</p>;
 }
