@@ -42,7 +42,7 @@ export default function HomePage() {
       const liff = window.liff;
 
       try {
-        await liff.init({ liffId: "2008486286-rBk2lqm4" });
+        await liff.init({ liffId: "22008486286-mM6W3zQD" });
 
         if (!liff.isLoggedIn()) {
           liff.login({ redirectUri: window.location.href });

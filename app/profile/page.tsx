@@ -3,78 +3,128 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
+interface UserData {
+  name?: string;
+  phone?: string;
+  citizenId?: string;
+  email?: string;
+}
+
 export default function ProfilePage() {
-  const [profile, setProfile] = useState<any>(null);
-  const [showFullId, setShowFullId] = useState(false);
   const router = useRouter();
+  const [loading, setLoading] = useState(true);
+  const [liffProfile, setLiffProfile] = useState<any>(null);
+  const [userData, setUserData] = useState<UserData | null>(null);
+  const [showFullId, setShowFullId] = useState(false);
 
   useEffect(() => {
-    const savedProfile = localStorage.getItem("liffProfile");
-    if (!savedProfile) {
-      router.push("/");
-    } else {
-      setProfile(JSON.parse(savedProfile));
-    }
+    const script = document.createElement("script");
+    script.src = "https://static.line-scdn.net/liff/edge/2/sdk.js";
+    script.async = true;
+
+    script.onload = async () => {
+      // @ts-ignore
+      const liff = window.liff;
+
+      try {
+        await liff.init({ liffId: process.env.NEXT_PUBLIC_LIFF_ID as string });
+
+        if (!liff.isLoggedIn()) {
+          liff.login({ redirectUri: window.location.href });
+          return;
+        }
+
+        // ดึงโปรไฟล์จาก LIFF
+        const profile = await liff.getProfile();
+        setLiffProfile(profile);
+
+        // ดึงข้อมูลสมาชิกจากฐานข้อมูล
+        const res = await fetch(`/api/get-user?userId=${profile.userId}`);
+        const data = await res.json();
+        setUserData(data);
+
+        setLoading(false);
+      } catch (err) {
+        console.error("Profile LIFF error:", err);
+      }
+    };
+
+    document.body.appendChild(script);
+
+    return () => {
+      document.body.removeChild(script);
+    };
   }, [router]);
 
-  if (!profile)
+  if (loading) {
     return (
-      <div className="flex items-center justify-center h-screen">
-        <p className="text-gray-600 text-lg">กำลังโหลดข้อมูล...</p>
+      <div className="flex items-center justify-center h-screen text-gray-600">
+        กำลังโหลดโปรไฟล์...
       </div>
     );
+  }
 
-  const maskedId = profile.citizenId
-    ? showFullId
-      ? profile.citizenId
-      : `${profile.citizenId.slice(0, 2)}•••••••••••`
-    : "-";
+  if (!liffProfile || !userData) {
+    return (
+      <div className="flex flex-col items-center justify-center h-screen gap-4">
+        <p className="text-gray-600">เกิดข้อผิดพลาด ไม่พบข้อมูลผู้ใช้</p>
+        <button
+          className="bg-red-500 text-white px-4 py-2 rounded"
+          onClick={() => router.push("/")}
+        >
+          กลับหน้าแรก
+        </button>
+      </div>
+    );
+  }
+
+  // เซนเซอร์เลขบัตร
+  const maskedCitizenId = userData.citizenId
+    ? `${userData.citizenId.slice(0, 2)}-${"•".repeat(
+        userData.citizenId.length - 2
+      )}`
+    : "";
 
   return (
-    <div className="flex flex-col items-center justify-center h-screen p-6 bg-green-50">
-      <div className="bg-white shadow-md rounded-lg p-6 w-full max-w-sm text-center">
-        {profile.pictureUrl && (
-          <img
-            src={profile.pictureUrl}
-            alt="Profile"
-            className="w-24 h-24 rounded-full mx-auto mb-4"
-          />
-        )}
-        <h1 className="text-xl font-bold mb-2 text-green-700">
-          {profile.displayName}
-        </h1>
+    <div className="h-screen flex items-center justify-center px-6 bg-gradient-to-b from-green-100 to-white">
+      <div className="bg-white shadow-lg rounded-2xl p-6 w-full max-w-xs text-center">
+        <img
+          src={liffProfile.pictureUrl}
+          alt="Profile"
+          className="w-24 h-24 rounded-full mx-auto mb-4 shadow"
+        />
 
-        <p className="text-gray-700 mb-2">
-          <b>ชื่อ:</b> {profile.name}
-        </p>
-        <p className="text-gray-700 mb-2">
-          <b>เบอร์โทร:</b> {profile.phone}
-        </p>
-        <p className="text-gray-700 mb-2">
-          <b>บัตรประชาชน:</b> {maskedId}{" "}
-          {profile.citizenId && (
-            <button
-              onClick={() => setShowFullId((v) => !v)}
-              className="text-blue-600 underline ml-1 text-sm"
-            >
-              {showFullId ? "ซ่อน" : "ดูเต็ม"}
-            </button>
-          )}
-        </p>
-        <p className="text-gray-700 mb-4">
-          <b>อีเมล:</b> {profile.email || "-"}
-        </p>
+        <h1 className="text-2xl font-bold">{liffProfile.displayName}</h1>
+        <p className="text-gray-500 text-sm mb-6">สมาชิกของร้านคุณ</p>
+
+        <div className="text-left space-y-2">
+          <p><strong>ชื่อ:</strong> {userData.name}</p>
+          <p><strong>เบอร์โทร:</strong> {userData.phone}</p>
+
+          <p>
+            <strong>เลขบัตร:</strong>{" "}
+            {showFullId ? userData.citizenId : maskedCitizenId}
+          </p>
+
+          <button
+            className="text-blue-600 underline text-sm"
+            onClick={() => setShowFullId(!showFullId)}
+          >
+            {showFullId ? "ซ่อนเลขบัตร" : "แสดงเต็ม"}
+          </button>
+
+          <p><strong>อีเมล:</strong> {userData.email || "—"}</p>
+        </div>
 
         <button
-          className="bg-red-500 text-white py-2 rounded w-full font-semibold hover:bg-red-600"
+          className="mt-6 w-full bg-red-500 text-white py-2 rounded font-semibold"
           onClick={() => {
             // @ts-ignore
             window.liff.logout();
-            router.push("/");
-            window.location.reload();
+            window.location.href = "/";
           }}
         >
-          Logout จากระบบ LINE
+          ออกจากระบบ LINE
         </button>
       </div>
     </div>
