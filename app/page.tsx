@@ -4,13 +4,12 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
 interface UserData {
-  userId: string;
-  displayName: string;
-  pictureUrl?: string;
+  lineUserId?: string;
   name?: string;
   phone?: string;
   citizenId?: string;
   email?: string;
+  pictureUrl?: string;
 }
 
 export default function HomePage() {
@@ -19,160 +18,125 @@ export default function HomePage() {
   const router = useRouter();
 
   useEffect(() => {
-    const savedProfile = localStorage.getItem("liffProfile");
-    if (savedProfile) {
-      const profile = JSON.parse(savedProfile);
-      setUserData(profile);
-      setLoading(false);
-
-      // ถ้าลงทะเบียนครบแล้ว -> ไปหน้า profile
-      if (profile.name && profile.phone && profile.citizenId) {
-        router.push("/profile");
-      }
-      return;
-    }
-
-    // โหลด LIFF SDK
     const script = document.createElement("script");
     script.src = "https://static.line-scdn.net/liff/edge/2/sdk.js";
     script.async = true;
 
-    script.onload = async () => {
+    script.onload = () => {
       // @ts-ignore
       const liff = window.liff;
 
-      try {
-        await liff.init({ liffId: "22008486286-mM6W3zQD" });
+      liff.init({ liffId: process.env.NEXT_PUBLIC_LIFF_ID })
+        .then(async () => {
+          if (!liff.isLoggedIn()) {
+            liff.login({ redirectUri: window.location.href });
+          } else {
+            const profile = await liff.getProfile();
+            const lineUserId: string = profile.userId;
 
-        if (!liff.isLoggedIn()) {
-          liff.login({ redirectUri: window.location.href });
-        } else {
-          const profile = await liff.getProfile();
-          const data: UserData = {
-            userId: profile.userId,
-            displayName: profile.displayName,
-            pictureUrl: profile.pictureUrl,
-          };
-          localStorage.setItem("liffProfile", JSON.stringify(data));
-          setUserData(data);
+            const res = await fetch(`/api/get-user?userId=${lineUserId}`);
+            const data = await res.json();
 
-          // ถ้ามีข้อมูลครบแล้ว -> ไปหน้า profile
-          if (data.name && data.phone && data.citizenId) {
-            router.push("/profile");
+            if (data && data.name && data.phone && data.citizen_id) {
+              router.push("/profile");
+            } else {
+              setUserData({
+                lineUserId,
+                name: data?.name || "",
+                phone: data?.phone || "",
+                citizenId: data?.citizen_id || "",
+                email: data?.email || "",
+                pictureUrl: profile.pictureUrl,
+              });
+            }
+            setLoading(false);
           }
-        }
-      } catch (err) {
-        console.error("LIFF init error:", err);
-      } finally {
-        setLoading(false);
-      }
+        })
+        .catch((err: unknown) => {
+          console.error("LIFF init error:", err);
+          setLoading(false);
+        });
     };
 
     document.body.appendChild(script);
-    return () => {
-      document.body.removeChild(script);
-    };
+    return () => { document.body.removeChild(script); };
   }, [router]);
 
-  if (loading)
-    return (
-      <div className="flex items-center justify-center h-screen">
-        <p className="text-gray-600 text-lg">กำลังโหลด LIFF...</p>
-      </div>
-    );
+  if (loading) return <p className="p-4 text-center">กำลังโหลด LIFF...</p>;
 
-  // ถ้าล็อคอินแล้วแต่ยังไม่ได้ลงทะเบียน
   if (userData && (!userData.name || !userData.phone || !userData.citizenId)) {
     return (
-      <div className="flex flex-col items-center justify-center h-screen p-6 bg-green-50">
-        <div className="bg-white shadow-md rounded-lg p-6 w-full max-w-sm text-center">
-          <h1 className="text-xl font-bold mb-4 text-green-700">
-            ลงทะเบียนสมาชิก
-          </h1>
-
-          {userData.pictureUrl && (
-            <img
-              src={userData.pictureUrl}
-              alt="Profile"
-              className="w-20 h-20 rounded-full mx-auto mb-3"
-            />
-          )}
-          <p className="text-gray-600 mb-4">{userData.displayName}</p>
-
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              const form = e.target as HTMLFormElement;
-              const data = {
-                ...userData,
-                name: (form.elements.namedItem("name") as HTMLInputElement)
-                  .value,
-                phone: (form.elements.namedItem("phone") as HTMLInputElement)
-                  .value,
-                citizenId: (
-                  form.elements.namedItem("citizenId") as HTMLInputElement
-                ).value,
-                email: (form.elements.namedItem("email") as HTMLInputElement)
-                  .value,
-              };
-
-              localStorage.setItem("liffProfile", JSON.stringify(data));
-              router.push("/profile");
-            }}
-          >
-            <input
-              name="name"
-              placeholder="ชื่อ-นามสกุล"
-              className="border border-gray-300 rounded p-2 w-full mb-2 text-sm"
-              required
-            />
-            <input
-              name="phone"
-              placeholder="เบอร์โทร"
-              className="border border-gray-300 rounded p-2 w-full mb-2 text-sm"
-              required
-            />
-            <input
-              name="citizenId"
-              placeholder="หมายเลขบัตรประชาชน"
-              className="border border-gray-300 rounded p-2 w-full mb-2 text-sm"
-              required
-            />
-            <input
-              name="email"
-              placeholder="อีเมล (ไม่บังคับ)"
-              className="border border-gray-300 rounded p-2 w-full mb-4 text-sm"
-            />
-
-            <button
-              type="submit"
-              className="bg-green-600 text-white py-2 rounded w-full font-semibold hover:bg-green-700"
-            >
-              บันทึกข้อมูล
-            </button>
-          </form>
-
+      <div className="p-4 max-w-md mx-auto text-center">
+        <h1 className="text-xl font-bold mb-4">กรอกข้อมูลลูกค้า</h1>
+        <form
+          onSubmit={async (e) => {
+            e.preventDefault();
+            const form = e.target as any;
+            const data = {
+              line_user_id: userData.lineUserId,
+              name: form.name.value,
+              phone: form.phone.value,
+              citizenId: form.citizenId.value,
+              email: form.email.value,
+              pictureUrl: userData.pictureUrl,
+            };
+            await fetch("/api/save-user", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(data),
+            });
+            router.push("/profile");
+          }}
+        >
+          <input
+            name="name"
+            placeholder="ชื่อ-นามสกุล"
+            defaultValue={userData?.name}
+            className="border p-2 w-full mb-2"
+            required
+          />
+          <input
+            name="phone"
+            placeholder="เบอร์โทร"
+            defaultValue={userData?.phone}
+            className="border p-2 w-full mb-2"
+            required
+          />
+          <input
+            name="citizenId"
+            placeholder="หมายเลขบัตรประชาชน"
+            defaultValue={userData?.citizenId}
+            className="border p-2 w-full mb-2"
+            required
+          />
+          <input
+            name="email"
+            placeholder="อีเมล (ไม่บังคับ)"
+            defaultValue={userData?.email}
+            className="border p-2 w-full mb-2"
+          />
           <button
-            className="mt-4 bg-red-500 text-white py-2 rounded w-full font-semibold hover:bg-red-600"
-            onClick={() => {
-              // logout เฉพาะ session LIFF
-              // @ts-ignore
-              window.liff.logout();
-              // แต่ไม่ลบข้อมูลสมาชิก
-              router.push("/");
-              window.location.reload();
-            }}
+            type="submit"
+            className="bg-green-500 text-white px-4 py-2 rounded w-full"
           >
-            Logout จากระบบ LINE
+            บันทึกข้อมูล
           </button>
-        </div>
+        </form>
+
+        <button
+          className="mt-4 bg-red-500 text-white px-4 py-2 rounded w-full"
+          onClick={() => {
+            // logout LIFF
+            // @ts-ignore
+            window.liff.logout();
+            window.location.reload();
+          }}
+        >
+          Logout
+        </button>
       </div>
     );
   }
 
-  return (
-    <div className="flex items-center justify-center h-screen">
-      <p className="text-gray-600 text-lg">กำลังโหลดข้อมูล...</p>
-    </div>
-  );
+  return <p className="p-4 text-center">กำลังโหลดข้อมูล...</p>;
 }
