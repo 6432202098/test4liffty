@@ -1,7 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
+import gsap from "gsap";
+import { ScrollTrigger } from "gsap/dist/ScrollTrigger";
+
+gsap.registerPlugin(ScrollTrigger);
 
 interface UserData {
   lineUserId?: string;
@@ -17,6 +21,7 @@ export default function ProfilePage() {
   const [userData, setUserData] = useState<UserData | null>(null);
   const [showCitizen, setShowCitizen] = useState(false);
   const router = useRouter();
+  const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const script = document.createElement("script");
@@ -57,7 +62,6 @@ export default function ProfilePage() {
 
     document.body.appendChild(script);
 
-    // ✅ useEffect return ต้องเป็น void
     return () => {
       if (document.body.contains(script)) {
         document.body.removeChild(script);
@@ -65,21 +69,51 @@ export default function ProfilePage() {
     };
   }, [router]);
 
-  if (loading) return <p className="p-4 text-center">กำลังโหลดโปรไฟล์...</p>;
+  // GSAP animation for profile items
+  useEffect(() => {
+    if (containerRef.current) {
+      gsap.from(containerRef.current.querySelectorAll(".fade-up"), {
+        y: 30,
+        opacity: 0,
+        duration: 1,
+        stagger: 0.2,
+        ease: "power3.out",
+        scrollTrigger: {
+          trigger: containerRef.current,
+          start: "top 90%",
+        },
+      });
+    }
+  }, [userData]);
+
+  if (loading)
+    return (
+      <p className="p-4 text-center text-[#7a955f] font-semibold">
+        กำลังโหลดโปรไฟล์...
+      </p>
+    );
   if (!userData) return null;
 
   return (
-    <div className="p-4 max-w-md mx-auto text-center">
+    <div
+      ref={containerRef}
+      className="p-6 max-w-md mx-auto bg-white rounded-3xl shadow-lg text-gray-900"
+      style={{
+        cursor: "url('data:image/svg+xml;utf8,<svg fill=%237a955f height=24 width=24 xmlns=http://www.w3.org/2000/svg><circle cx=12 cy=12 r=12/></svg>') 12 12, auto",
+      }}
+    >
       {userData.pictureUrl && (
         <img
           src={userData.pictureUrl}
           alt="Profile"
-          className="w-24 h-24 rounded-full mx-auto mb-4"
+          className="w-24 h-24 rounded-full mx-auto mb-4 fade-up"
         />
       )}
-      <h1 className="text-xl font-bold mb-2">{userData.name}</h1>
-      <p>เบอร์โทร: {userData.phone}</p>
-      <p>
+      <h1 className="text-2xl font-bold mb-2 text-center fade-up text-[#7a955f]">
+        {userData.name}
+      </h1>
+      <p className="fade-up">เบอร์โทร: {userData.phone}</p>
+      <p className="fade-up">
         หมายเลขบัตรประชาชน:{" "}
         {showCitizen
           ? userData.citizenId
@@ -87,16 +121,16 @@ export default function ProfilePage() {
           ? `${userData.citizenId.slice(0, 2)}***********`
           : ""}
         <button
-          className="ml-2 text-blue-500"
+          className="ml-2 text-[#7a955f] font-semibold"
           onClick={() => setShowCitizen(!showCitizen)}
         >
           {showCitizen ? "ปิด" : "แสดง"}
         </button>
       </p>
-      {userData.email && <p>อีเมล: {userData.email}</p>}
+      {userData.email && <p className="fade-up">อีเมล: {userData.email}</p>}
 
       <button
-        className="mt-4 bg-red-500 text-white px-4 py-2 rounded w-full"
+        className="mt-6 fade-up bg-gradient-to-r from-[#7a955f] to-[#a4c17c] hover:from-[#6f8e4f] hover:to-[#91b76b] transition-all duration-300 text-white px-4 py-3 rounded-xl w-full font-semibold shadow-lg"
         onClick={() => {
           // logout LIFF
           // @ts-ignore

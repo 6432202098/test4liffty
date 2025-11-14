@@ -1,27 +1,64 @@
-@tailwind base;
-@tailwind utilities;
-@tailwind utilities;
-
 :root {
-  --foreground-rgb: 0, 0, 0;
-  --background-start-rgb: 214, 219, 220;
-  --background-end-rgb: 255, 255, 255;
+  --ci-green: #7a955f;
+  --ci-green-rgb: 122,149,95;
+
+  --input-bg-white: #ffffff;
+  --input-bg-gray: #E0E0E0;
+  --input-text: #222222;
+  --input-placeholder: #787878;
+
+  --bg-start: #d6dbdc;
+  --bg-end: #ffffff;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --foreground-rgb: 255, 255, 255;
-    --background-start-rgb: 0, 0, 0;
-    --background-end-rgb: 0, 0, 0;
+    --input-bg-white: #1e1e1e;
+    --input-bg-gray: #323232;
+    --input-text: #ffffff;
+    --input-placeholder: #b4b4b4;
+
+    --bg-start: #000000;
+    --bg-end: #000000;
   }
 }
 
 body {
-  color: rgb(var(--foreground-rgb));
-  background: linear-gradient(
-      to bottom,
-      transparent,
-      rgb(var(--background-end-rgb))
-    )
-    rgb(var(--background-start-rgb));
+  background: linear-gradient(to bottom, var(--bg-start), var(--bg-end));
+  color: rgb(var(--input-text));
+  font-family: 'Inter', sans-serif;
+  cursor: url('data:image/svg+xml;utf8,<svg fill=%237a955f height=24 width=24 xmlns=http://www.w3.org/2000/svg"><circle cx=12 cy=12 r=12/></svg>') 12 12, auto;
+  transition: background 0.3s, color 0.3s;
+}
+
+/* Input focus effect (GSAP animation + Tailwind ใช้ร่วมกันได้) */
+input:focus,
+textarea:focus,
+select:focus {
+  outline: none;
+  box-shadow: 0 0 10px rgba(var(--ci-green-rgb), 0.4);
+  border-color: var(--ci-green);
+}
+
+/* Buttons global hover */
+button {
+  transition: all 0.3s ease;
+}
+
+button:hover {
+  filter: brightness(1.05);
+}
+
+/* Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: rgb(var(--bg-start));
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--ci-green);
+  border-radius: 8px;
 }
